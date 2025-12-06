@@ -16,7 +16,7 @@ on:
           - ai
           - all
       tag:
-        description: 'Image tag'
+        description: 'Git tag or "latest" for main branch'
         required: true
         default: 'latest'
 
@@ -35,6 +35,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: localstore-platform/api
+          ref: ${{ github.event.inputs.tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.tag) }}
           path: api
       
       - name: Set up Docker Buildx
@@ -52,9 +53,7 @@ jobs:
         with:
           context: api
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ github.event.inputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ github.event.inputs.tag }}
           target: production
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -69,6 +68,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: localstore-platform/ai-service
+          ref: ${{ github.event.inputs.tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.tag) }}
           path: ai-service
       
       - name: Set up Docker Buildx
@@ -86,8 +86,6 @@ jobs:
         with:
           context: ai-service
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/ai:${{ github.event.inputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/ai:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/ai:${{ github.event.inputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
