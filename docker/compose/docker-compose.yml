@@ -1,0 +1,89 @@
+# LocalStore Platform - Local Development Environment
+# Usage: docker compose up -d
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: localstore-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-localstore}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localstore_dev}
+      POSTGRES_DB: ${DB_NAME:-localstore}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-localstore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - localstore-network
+
+  # Redis Cache
+  redis:
+    image: redis:8-alpine
+    container_name: localstore-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - localstore-network
+
+  # NestJS API (optional - can run locally instead)
+  api:
+    image: ghcr.io/localstore-platform/api:latest
+    container_name: localstore-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${DB_USER:-localstore}:${DB_PASSWORD:-localstore_dev}@postgres:5432/${DB_NAME:-localstore}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-dev_secret_change_in_production}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - localstore-network
+
+  # Python AI Service (optional)
+  # ai:
+  #   build:
+  #     context: ../../../ai-service
+  #     dockerfile: Dockerfile
+  #   container_name: localstore-ai
+  #   restart: unless-stopped
+  #   environment:
+  #     ENVIRONMENT: development
+  #     DATABASE_URL: postgres://${DB_USER:-localstore}:${DB_PASSWORD:-localstore_dev}@postgres:5432/${DB_NAME:-localstore}
+  #   ports:
+  #     - "8000:8000"
+  #     - "5000:5000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   networks:
+  #     - localstore-network
+
+networks:
+  localstore-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
