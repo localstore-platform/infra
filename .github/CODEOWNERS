@@ -1,0 +1,23 @@
+# Infrastructure & Deployment Ownership
+# See: https://github.com/localstore-platform/specs/blob/main/documentation/codeowners-examples.md
+
+# Default owners for all files
+* @donggiangthai
+
+# Terraform configurations
+/terraform/ @donggiangthai
+
+# Docker configurations
+/docker/ @donggiangthai
+
+# Kubernetes manifests (future)
+/k8s/ @donggiangthai
+
+# CI/CD workflows
+/.github/ @donggiangthai
+
+# Scripts and automation
+/scripts/ @donggiangthai
+
+# Documentation
+/docs/ @donggiangthai
