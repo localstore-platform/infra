@@ -13,13 +13,14 @@ This document describes the Git workflow for the LocalStore Platform infrastruct
 
 ### Feature Branches
 
-```
+```plaintext
 feature/{ticket-id}-{description}
 bugfix/{ticket-id}-{description}
 hotfix/{ticket-id}-{description}
 ```
 
 **Examples:**
+
 - `feature/INFRA-001-vpc-setup`
 - `bugfix/INFRA-002-security-group-fix`
 - `hotfix/INFRA-003-ssl-renewal`
@@ -56,7 +57,7 @@ git commit -m "feat(vpc): add VPC and subnet configuration"
 
 Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
-```
+```plaintext
 <type>(<scope>): <description>
 
 [optional body]
@@ -65,6 +66,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Types:**
+
 - `feat`: New feature (Terraform module, Docker config)
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -73,13 +75,15 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `ci`: CI/CD changes
 
 **Scopes:**
+
 - `vpc`, `ec2`, `rds`, `s3` - Terraform modules
 - `docker`, `nginx` - Docker configurations
 - `ci`, `github` - CI/CD workflows
 - `docs` - Documentation
 
 **Examples:**
-```
+
+```plaintext
 feat(ec2): add production EC2 instance configuration
 fix(nginx): correct SSL certificate path
 docs(readme): update deployment instructions
@@ -144,7 +148,7 @@ terraform show plan.tfplan
 
 ### Environment Promotion
 
-```
+```plaintext
 dev → staging → prod
 ```
 
