@@ -1,4 +1,4 @@
-## Summary
+# Summary
 
 <!-- Short description of infrastructure change (resources affected, cloud provider) -->
 
@@ -41,7 +41,7 @@
 - **Downtime Required:** Yes / No
 - **Data Migration:** Yes / No
 - **Rollback Steps:**
-  1. 
+  1.
 
 ## Security & Cost
 

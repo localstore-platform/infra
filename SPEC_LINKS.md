@@ -2,7 +2,7 @@
 
 This document maps infrastructure implementation to the LocalStore Platform specifications.
 
-**Spec Repository:** https://github.com/localstore-platform/specs  
+**Spec Repository:** <https://github.com/localstore-platform/specs>  
 **Spec Version:** v1.1-specs  
 **Last Updated:** December 2025
 
@@ -69,7 +69,7 @@ This document maps infrastructure implementation to the LocalStore Platform spec
 
 ## 🔄 Cross-Repository Dependencies
 
-```
+```plaintext
 specs (documentation)
    │
    ├── infra (this repo)

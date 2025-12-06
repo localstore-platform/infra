@@ -23,6 +23,7 @@
 **Story INFRA-2: Terraform Workspaces** - ✅ Completed
 
 Refactored from folder-based environments to workspace-based:
+
 - Created unified `main.tf` using `terraform.workspace`
 - Added `tfvars/` directory for environment-specific values
 - Created dev workspace and verified plan (7 resources)
@@ -75,7 +76,7 @@ Refactored from folder-based environments to workspace-based:
 
 ## 📊 Terraform Plan Summary (Dev)
 
-```
+```plaintext
 Plan: 7 to add, 0 to change, 0 to destroy
 
 Resources:

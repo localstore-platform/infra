@@ -13,7 +13,7 @@ This guide covers deploying the LocalStore Platform to AWS.
 
 The MVP deployment consists of a single EC2 instance running all services via Docker Compose.
 
-```
+```diagram
 Internet
     │
     ▼
@@ -76,6 +76,7 @@ vim terraform.tfvars
 ```
 
 Required values:
+
 - `key_name`: Your SSH key pair name
 - `admin_ip`: Your IP address for SSH access (CIDR format)
 - `domain_name`: Your domain (e.g., quanly.ai)
@@ -153,6 +154,7 @@ docker compose -f docker-compose.prod.yml restart nginx
 ### CloudWatch Dashboard
 
 Access CloudWatch in the AWS Console to view:
+
 - CPU utilization
 - Memory usage
 - Disk I/O

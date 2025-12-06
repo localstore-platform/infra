@@ -4,7 +4,7 @@ This document outlines security configurations for the LocalStore Platform infra
 
 ## Security Architecture
 
-```
+```plaintext
 ┌─────────────────────────────────────────────────────────────┐
 │                     Security Layers                         │
 ├─────────────────────────────────────────────────────────────┤
@@ -86,6 +86,7 @@ sudo certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN
 ### Nginx SSL Configuration
 
 See [docker/nginx/conf.d/api.conf](../docker/nginx/conf.d/api.conf) for:
+
 - TLS 1.2/1.3 only
 - Strong cipher suites
 - HSTS headers
@@ -146,6 +147,7 @@ CREATE POLICY tenant_isolation ON orders
 ### CloudWatch Alerts
 
 Configure alerts for:
+
 - Failed SSH login attempts
 - Unusual API error rates (>5%)
 - High network traffic spikes
@@ -154,6 +156,7 @@ Configure alerts for:
 ### Logging
 
 All logs retained for:
+
 - VPC Flow Logs: 30 days
 - Application logs: 90 days
 - Audit logs: 1 year

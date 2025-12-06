@@ -6,7 +6,7 @@ This document covers monitoring configuration for the LocalStore Platform.
 
 For MVP, we use AWS CloudWatch for simplicity and cost-effectiveness.
 
-```
+```plaintext
 ┌─────────────────────────────────────────────┐
 │              Monitoring Stack               │
 ├─────────────────────────────────────────────┤
@@ -197,7 +197,8 @@ services:
 ### Log Insights Queries
 
 **Error Analysis:**
-```
+
+```plaintext
 fields @timestamp, @message
 | filter @message like /ERROR/
 | sort @timestamp desc
@@ -205,7 +206,8 @@ fields @timestamp, @message
 ```
 
 **Slow API Requests:**
-```
+
+```plaintext
 fields @timestamp, path, duration
 | filter duration > 1000
 | sort duration desc
@@ -213,7 +215,8 @@ fields @timestamp, path, duration
 ```
 
 **Request Volume by Endpoint:**
-```
+
+```plaintext
 fields path
 | stats count(*) as requests by path
 | sort requests desc
@@ -316,12 +319,14 @@ docker compose restart api
 ## Cost Optimization
 
 CloudWatch costs (estimated):
+
 - Metrics: $0.30/metric/month
 - Logs: $0.50/GB ingested + $0.03/GB stored
 - Alarms: $0.10/alarm/month
 - Dashboards: $3/dashboard/month
 
 **Tips:**
+
 - Use log retention policies (30 days for most)
 - Filter logs before ingestion
 - Use metric math instead of custom metrics

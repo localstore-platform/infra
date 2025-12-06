@@ -95,7 +95,7 @@ These can be overridden via tfvars files.
 
 Each workspace has its own state file in S3:
 
-```
+```plaintext
 s3://localstore-terraform-state/
 ├── env:/dev/terraform.tfstate
 ├── env:/staging/terraform.tfstate
@@ -116,6 +116,7 @@ s3://localstore-terraform-state/
 ## Best Practices
 
 1. **Always verify workspace** before applying:
+
    ```bash
    terraform workspace show
    ```
@@ -125,6 +126,7 @@ s3://localstore-terraform-state/
 3. **Never use `default` workspace** for real environments
 
 4. **Lock sensitive vars** via environment variables:
+
    ```bash
    export TF_VAR_db_password="secure_password"
    ```
@@ -137,27 +139,33 @@ If you previously used separate folders:
 
 1. Create the new workspace
 2. Import existing resources:
+
    ```bash
    terraform workspace select prod
    terraform import module.vpc.aws_vpc.main vpc-xxxxx
    terraform import module.ec2.aws_instance.app i-xxxxx
    ```
+
 3. Verify with `terraform plan`
 4. Remove old state files after confirming
 
 ## Troubleshooting
 
 ### "Workspace does not exist"
+
 ```bash
 terraform workspace new <name>
 ```
 
 ### Wrong workspace applied
+
 Always check before apply:
+
 ```bash
 terraform workspace show
 echo "Applying to: $(terraform workspace show)"
 ```
 
 ### State conflicts
+
 Use DynamoDB locking (already configured in backend).
