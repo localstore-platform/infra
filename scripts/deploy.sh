@@ -147,34 +147,17 @@ deploy_application() {
             "ec2-user@$EC2_IP:/opt/localstore/.env"
     fi
     
-    # Deploy
-    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" << 'EOF'
-        cd /opt/localstore
-        
-        # Login to ECR (uses instance IAM role)
-        # Get AWS account ID and region dynamically (IMDSv2 requires token)
-        TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
-        AWS_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
-        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        
-        # Export ECR_REGISTRY for docker-compose
-        export ECR_REGISTRY
-        
-        # Get ECR login token and authenticate Docker
-        aws ecr get-login-password --region $AWS_REGION | \
-            docker login --username AWS --password-stdin $ECR_REGISTRY 2>/dev/null || \
-            echo "Warning: ECR login failed. Will use local/public images only."
-        
-        # Update .env with ECR_REGISTRY if not set
-        if ! grep -q "^ECR_REGISTRY=" .env 2>/dev/null; then
-            echo "ECR_REGISTRY=$ECR_REGISTRY" >> .env
-        fi
-        
-        docker compose pull || echo "Some images may not be available yet"
-        docker compose up -d
-        docker compose ps
-EOF
+    # Copy and run remote deployment script (avoiding heredoc issues)
+    echo "Running remote deployment..."
+    scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SCRIPT_DIR/remote-deploy.sh" "ec2-user@$EC2_IP:/tmp/remote-deploy.sh"
+    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" "chmod +x /tmp/remote-deploy.sh && /tmp/remote-deploy.sh"
+
+    # For dev environment, also seed the database with sample data
+    if [ "$ENVIRONMENT" = "dev" ]; then
+        echo "Seeding database with sample data (dev environment only)..."
+        scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SCRIPT_DIR/seed.sh" "ec2-user@$EC2_IP:/tmp/seed.sh"
+        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" "chmod +x /tmp/seed.sh && /tmp/seed.sh"
+    fi
     
     echo "Application deployed successfully."
     echo ""
