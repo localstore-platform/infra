@@ -194,9 +194,10 @@ EOF
             cd /opt/localstore
             
             # Wait for API to be ready
+            # Note: Using wget because alpine-based API container doesn't have curl
             echo "Waiting for API to be ready..."
             for i in {1..30}; do
-                if docker compose exec -T api curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+                if docker compose exec -T api wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/health 2>/dev/null; then
                     echo "API is ready!"
                     break
                 fi
