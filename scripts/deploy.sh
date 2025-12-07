@@ -109,14 +109,23 @@ deploy_application() {
     
     echo "Using compose file: $COMPOSE_FILE"
     
-    # Create directory on remote
+    # Create directories on remote
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" \
-        "sudo mkdir -p /opt/localstore && sudo chown ec2-user:ec2-user /opt/localstore"
+        "sudo mkdir -p /opt/localstore/nginx/conf.d && sudo chown -R ec2-user:ec2-user /opt/localstore"
     
     # Copy docker-compose files
     scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
         "$INFRA_DIR/docker/compose/$COMPOSE_FILE" \
         "ec2-user@$EC2_IP:/opt/localstore/docker-compose.yml"
+    
+    # Copy nginx configuration files
+    scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
+        "$INFRA_DIR/docker/nginx/nginx.conf" \
+        "ec2-user@$EC2_IP:/opt/localstore/nginx/nginx.conf"
+    
+    scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r \
+        "$INFRA_DIR/docker/nginx/conf.d/" \
+        "ec2-user@$EC2_IP:/opt/localstore/nginx/"
     
     # Copy .env file if exists
     if [ -f "$INFRA_DIR/.env.${ENVIRONMENT}" ]; then
