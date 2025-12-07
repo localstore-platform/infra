@@ -1,26 +1,45 @@
-# LocalStore Platform - Dev Environment (Infrastructure Only)
+# LocalStore Platform - Dev Environment
 # Usage: docker compose -f docker-compose.dev.yml up -d
 #
-# This compose file runs only infrastructure services (PostgreSQL, Redis)
-# API and AI services will be deployed when GHCR images are available
+# SSL is handled by CloudFlare proxy - nginx only listens on port 80
 
 services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: localstore-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - localstore-network
+
   # PostgreSQL Database
   postgres:
     image: postgres:17-alpine
     container_name: localstore-postgres
     restart: always
     environment:
-      POSTGRES_USER: ${DB_USER:-localstore}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-localstore_dev}
-      POSTGRES_DB: ${DB_NAME:-localstore}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-localstore}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -42,6 +61,30 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - localstore-network
+
+  # NestJS API
+  api:
+    image: ${ECR_REGISTRY}/localstore/api:${API_VERSION}
+    container_name: localstore-api
+    restart: always
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgres://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      API_PORT: 8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - localstore-network
 
