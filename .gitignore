@@ -111,3 +111,12 @@ id_ed25519
 secrets/
 *.secret
 *_secret*
+
+# ===================
+# SSL Certificates
+# ===================
+
+# CloudFlare Origin Certificates (never commit!)
+ssl/
+*.pem
+*.crt

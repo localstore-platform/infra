@@ -16,32 +16,79 @@ Multi-level subdomains like `api.dev.example.com` require paid Advanced Certific
 ## Files
 
 - `nginx.conf` - Main Nginx configuration
-- `conf.d/api.conf` - API server configuration (CloudFlare proxy mode)
+- `conf.d/api.conf` - API server configuration with HTTPS
 
-## CloudFlare Proxy Mode
+## CloudFlare Full (Strict) Mode
 
-When CloudFlare proxy is enabled (orange cloud icon), you get **FREE**:
-
-| Feature       | Description                                      |
-| ------------- | ------------------------------------------------ |
-| SSL/TLS       | Auto-provisioned certificates                    |
-| DDoS Protection | Layer 3/4/7 DDoS mitigation                    |
-| WAF           | Web Application Firewall (basic rules)           |
-| CDN           | Edge caching for static assets                   |
-| Hidden Origin | EC2 IP not exposed publicly                      |
+We use CloudFlare's **Full (Strict)** SSL mode with Origin Certificates for end-to-end encryption.
 
 ### Architecture
 
 ```plaintext
-User ──HTTPS──> CloudFlare Edge ──HTTP──> EC2 (nginx port 80) ──> API
-                (SSL termination)         (no SSL config needed)
+User ──HTTPS──> CloudFlare Edge ──HTTPS──> EC2 (nginx port 443) ──> API
+                (edge cert)        (origin cert)
 ```
 
-### CloudFlare SSL Mode
+### SSL Modes Comparison
 
-Set to "Flexible" in CloudFlare dashboard:
+| Mode | Browser → CF | CF → Origin | Security |
+|------|-------------|-------------|----------|
+| Flexible | HTTPS | HTTP | Low ❌ |
+| Full | HTTPS | HTTPS (any cert) | Medium |
+| **Full (Strict)** | HTTPS | HTTPS (valid cert) | **High ✅** |
 
-- **Flexible**: CloudFlare → Origin via HTTP (recommended for this setup)
+---
+
+## CloudFlare Origin Certificate Setup
+
+### Step 1: Generate Origin Certificate
+
+1. Go to CloudFlare Dashboard → `localstore-platform.com`
+2. Click **SSL/TLS** → **Origin Server**
+3. Click **Create Certificate**
+4. Options:
+   - Let CloudFlare generate a private key
+   - Hostnames: `*.localstore-platform.com`, `localstore-platform.com`
+   - Validity: 15 years (recommended)
+5. Copy the **Origin Certificate** (PEM format)
+6. Copy the **Private Key** (PEM format)
+
+### Step 2: Save Certificates Locally
+
+```bash
+# Create ssl directory (gitignored)
+mkdir -p ssl
+
+# Paste the certificate
+cat > ssl/origin.pem << 'EOF'
+-----BEGIN CERTIFICATE-----
+<paste certificate here>
+-----END CERTIFICATE-----
+EOF
+
+# Paste the private key
+cat > ssl/origin-key.pem << 'EOF'
+-----BEGIN PRIVATE KEY-----
+<paste private key here>
+-----END PRIVATE KEY-----
+EOF
+
+# Secure the files
+chmod 600 ssl/origin-key.pem
+```
+
+### Step 3: Set CloudFlare SSL Mode
+
+1. CloudFlare Dashboard → SSL/TLS → Overview
+2. Set encryption mode to **Full (Strict)**
+
+### Step 4: Deploy
+
+```bash
+make deploy-app ENV=dev
+```
+
+The deploy script will automatically copy SSL certificates to EC2.
 
 ---
 
@@ -80,22 +127,24 @@ Create token at: <https://dash.cloudflare.com/profile/api-tokens>
    export CLOUDFLARE_API_TOKEN="your-token"
    ```
 
-2. **Deploy infrastructure** (creates EC2 + DNS record):
+2. **Generate and save Origin Certificate** (see above)
+
+3. **Set CloudFlare SSL mode to "Full (Strict)"**
+
+4. **Deploy infrastructure** (creates EC2 + DNS record):
 
    ```bash
    make deploy-infra ENV=dev
    ```
 
-3. **Start services**:
+5. **Deploy application** (copies SSL certs + starts containers):
 
    ```bash
    make deploy-app ENV=dev
    ```
 
-4. **Verify**:
+6. **Verify**:
 
    ```bash
-   curl -I https://api-dev.localstore-platform.com/health
+   curl -I https://api-dev.localstore-platform.com/api/v1/health
    ```
-
-No SSL certificate management needed! CloudFlare handles everything.

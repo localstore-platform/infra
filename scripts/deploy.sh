@@ -109,9 +109,9 @@ deploy_application() {
     
     echo "Using compose file: $COMPOSE_FILE"
     
-    # Create directories on remote
+    # Create directories on remote (including SSL directory)
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" \
-        "sudo mkdir -p /opt/localstore/nginx/conf.d && sudo chown -R ec2-user:ec2-user /opt/localstore"
+        "sudo mkdir -p /opt/localstore/nginx/conf.d /opt/localstore/ssl && sudo chown -R ec2-user:ec2-user /opt/localstore"
     
     # Copy docker-compose files
     scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
@@ -126,6 +126,19 @@ deploy_application() {
     scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r \
         "$INFRA_DIR/docker/nginx/conf.d/" \
         "ec2-user@$EC2_IP:/opt/localstore/nginx/"
+    
+    # Copy SSL certificates if they exist locally
+    if [ -f "$INFRA_DIR/ssl/origin.pem" ] && [ -f "$INFRA_DIR/ssl/origin-key.pem" ]; then
+        echo "Copying SSL certificates..."
+        scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
+            "$INFRA_DIR/ssl/origin.pem" \
+            "$INFRA_DIR/ssl/origin-key.pem" \
+            "ec2-user@$EC2_IP:/opt/localstore/ssl/"
+    else
+        echo "Warning: SSL certificates not found at $INFRA_DIR/ssl/"
+        echo "         nginx HTTPS will not work until certificates are installed."
+        echo "         See: https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/"
+    fi
     
     # Copy .env file if exists
     if [ -f "$INFRA_DIR/.env.${ENVIRONMENT}" ]; then
