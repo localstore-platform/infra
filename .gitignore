@@ -41,12 +41,9 @@ terraform.rc
 # Environment
 # ===================
 
-# Local environment file (contains secrets)
+# Local environment files (contain secrets)
 .env
-.env.local
-.env.*.local
-
-# But include example
+.env.*
 !.env.example
 
 # ===================
@@ -114,3 +111,12 @@ id_ed25519
 secrets/
 *.secret
 *_secret*
+
+# ===================
+# SSL Certificates
+# ===================
+
+# CloudFlare Origin Certificates (never commit!)
+ssl/
+*.pem
+*.crt

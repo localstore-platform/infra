@@ -1,5 +1,13 @@
-# Docker Image Build and Push
-# Builds and pushes Docker images for API and AI services
+# Docker Image Build and Push to AWS ECR
+# Builds and pushes Docker images for API service
+# TODO: Uncomment AI service job when ai-service repository is ready
+#
+# Prerequisites:
+#   - AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in repository secrets
+#   - IAM user needs: ecr:CreateRepository, ecr:GetAuthorizationToken,
+#     ecr:BatchCheckLayerAvailability, ecr:PutImage, ecr:InitiateLayerUpload,
+#     ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:DescribeRepositories,
+#     ecr:PutLifecyclePolicy, ecr:TagResource
 
 name: Docker Build
 
@@ -7,22 +15,26 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: 'Service to build (api/ai/all)'
+        description: 'Service to build'
         required: true
-        default: 'all'
+        default: 'api'
         type: choice
         options:
           - api
-          - ai
-          - all
-      tag:
-        description: 'Git tag or "latest" for main branch'
-        required: true
+          # - ai    # TODO: Uncomment when ai-service is ready
+          # - all   # TODO: Uncomment when ai-service is ready
+      api_tag:
+        description: 'API git tag or "latest" for main branch'
+        required: false
         default: 'latest'
+      # ai_tag:   # TODO: Uncomment when ai-service is ready
+      #   description: 'AI git tag or "latest" for main branch'
+      #   required: false
+      #   default: 'latest'
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: localstore-platform
+  AWS_REGION: ap-southeast-1
+  ECR_NAMESPACE: localstore
 
 jobs:
   build-api:
@@ -31,61 +43,82 @@ jobs:
     if: ${{ github.event.inputs.service == 'api' || github.event.inputs.service == 'all' }}
     
     steps:
+      - name: Checkout Infra Repository
+        uses: actions/checkout@v4
+      
       - name: Checkout API Repository
         uses: actions/checkout@v4
         with:
           repository: localstore-platform/api
-          ref: ${{ github.event.inputs.tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.tag) }}
+          ref: ${{ github.event.inputs.api_tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.api_tag) }}
           path: api
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Setup ECR repository
+        run: make -f scripts/ecr.mk setup-repo REPO=${{ env.ECR_NAMESPACE }}/api
       
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build and Push API Image
         uses: docker/build-push-action@v5
         with:
           context: api
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ github.event.inputs.tag }}
+          tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_NAMESPACE }}/api:${{ github.event.inputs.api_tag }}
           target: production
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  build-ai:
-    name: Build AI Image
-    runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.service == 'ai' || github.event.inputs.service == 'all' }}
-    
-    steps:
-      - name: Checkout AI Repository
-        uses: actions/checkout@v4
-        with:
-          repository: localstore-platform/ai-service
-          ref: ${{ github.event.inputs.tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.tag) }}
-          path: ai-service
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Build and Push AI Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ai-service
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/ai:${{ github.event.inputs.tag }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+  # TODO: Uncomment this job when ai-service repository is ready
+  # build-ai:
+  #   name: Build AI Image
+  #   runs-on: ubuntu-latest
+  #   if: ${{ github.event.inputs.service == 'ai' || github.event.inputs.service == 'all' }}
+  #   
+  #   steps:
+  #     - name: Checkout Infra Repository
+  #       uses: actions/checkout@v4
+  #     
+  #     - name: Checkout AI Repository
+  #       uses: actions/checkout@v4
+  #       with:
+  #         repository: localstore-platform/ai-service
+  #         ref: ${{ github.event.inputs.ai_tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.ai_tag) }}
+  #         path: ai-service
+  #     
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
+  #     
+  #     - name: Login to Amazon ECR
+  #       id: login-ecr
+  #       uses: aws-actions/amazon-ecr-login@v2
+  #     
+  #     - name: Setup ECR repository
+  #       run: make -f scripts/ecr.mk setup-repo REPO=${{ env.ECR_NAMESPACE }}/ai
+  #     
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
+  #     
+  #     - name: Build and Push AI Image
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: ai-service
+  #         push: true
+  #         tags: ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_NAMESPACE }}/ai:${{ github.event.inputs.ai_tag }}
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max

@@ -1,0 +1,106 @@
+# LocalStore Platform - Dev Environment
+# Usage: docker compose -f docker-compose.dev.yml up -d
+#
+# SSL is handled by CloudFlare proxy - nginx only listens on port 80
+
+services:
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:alpine
+    container_name: localstore-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /opt/localstore/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /opt/localstore/nginx/conf.d:/etc/nginx/conf.d:ro
+      - /opt/localstore/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - localstore-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: localstore-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - localstore-network
+
+  # Redis Cache
+  redis:
+    image: redis:8-alpine
+    container_name: localstore-redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - localstore-network
+
+  # NestJS API
+  api:
+    image: ${ECR_REGISTRY}/localstore/api:${API_VERSION}
+    container_name: localstore-api
+    restart: always
+    environment:
+      NODE_ENV: development
+      PORT: 8080
+      LOG_LEVEL: debug
+      DATABASE_HOST: postgres
+      DATABASE_PORT: 5432
+      DATABASE_NAME: ${DB_NAME}
+      DATABASE_USERNAME: ${DB_USER}
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - localstore-network
+
+networks:
+  localstore-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
