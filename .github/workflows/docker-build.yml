@@ -1,5 +1,11 @@
-# Docker Image Build and Push
+# Docker Image Build and Push to AWS ECR
 # Builds and pushes Docker images for API and AI services
+#
+# Prerequisites:
+#   - AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in repository secrets
+#   - IAM user needs: ecr:CreateRepository, ecr:GetAuthorizationToken,
+#     ecr:BatchCheckLayerAvailability, ecr:PutImage, ecr:InitiateLayerUpload,
+#     ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:DescribeRepositories
 
 name: Docker Build
 
@@ -25,8 +31,8 @@ on:
         default: 'latest'
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: localstore-platform
+  AWS_REGION: ap-southeast-1
+  ECR_REGISTRY_ALIAS: localstore
 
 jobs:
   build-api:
@@ -42,22 +48,40 @@ jobs:
           ref: ${{ github.event.inputs.api_tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.api_tag) }}
           path: api
       
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Create ECR repository if not exists
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          aws ecr describe-repositories --repository-names api 2>/dev/null || \
+          aws ecr create-repository \
+            --repository-name api \
+            --image-scanning-configuration scanOnPush=true \
+            --image-tag-mutability MUTABLE
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
       - name: Build and Push API Image
         uses: docker/build-push-action@v5
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         with:
           context: api
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/api:${{ github.event.inputs.api_tag }}
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/api:${{ github.event.inputs.api_tag }}
+            ${{ steps.login-ecr.outputs.registry }}/api:${{ github.sha }}
           target: production
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -75,21 +99,35 @@ jobs:
           ref: ${{ github.event.inputs.ai_tag == 'latest' && 'main' || format('refs/tags/{0}', github.event.inputs.ai_tag) }}
           path: ai-service
       
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Create ECR repository if not exists
+        run: |
+          aws ecr describe-repositories --repository-names ai 2>/dev/null || \
+          aws ecr create-repository \
+            --repository-name ai \
+            --image-scanning-configuration scanOnPush=true \
+            --image-tag-mutability MUTABLE
+      
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
-      - name: Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Build and Push AI Image
         uses: docker/build-push-action@v5
         with:
           context: ai-service
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/ai:${{ github.event.inputs.ai_tag }}
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/ai:${{ github.event.inputs.ai_tag }}
+            ${{ steps.login-ecr.outputs.registry }}/ai:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
