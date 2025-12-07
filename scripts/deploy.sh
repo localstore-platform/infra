@@ -1,12 +1,15 @@
 #!/bin/bash
 # LocalStore Platform - Deployment Script
 # Usage: ./deploy.sh [environment]
+#
+# Uses Terraform workspaces for environment management
 
 set -e
 
-ENVIRONMENT=${1:-prod}
+ENVIRONMENT=${1:-dev}
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="$(dirname "$SCRIPT_DIR")"
+TERRAFORM_DIR="$INFRA_DIR/terraform"
 
 echo "=== LocalStore Platform Deployment ==="
 echo "Environment: $ENVIRONMENT"
@@ -38,18 +41,32 @@ check_prerequisites() {
 deploy_infrastructure() {
     echo "Deploying infrastructure..."
     
-    cd "$INFRA_DIR/terraform/environments/$ENVIRONMENT"
+    cd "$TERRAFORM_DIR"
     
-    terraform init
-    terraform plan -var-file="terraform.tfvars" -out=plan.tfplan
+    # Initialize if needed
+    if [ ! -d ".terraform" ]; then
+        terraform init
+    fi
+    
+    # Select or create workspace
+    if ! terraform workspace select "$ENVIRONMENT" 2>/dev/null; then
+        echo "Creating workspace: $ENVIRONMENT"
+        terraform workspace new "$ENVIRONMENT"
+    fi
+    
+    echo "Using workspace: $(terraform workspace show)"
+    
+    terraform plan -var-file="tfvars/${ENVIRONMENT}.tfvars" -out="${ENVIRONMENT}.tfplan"
     
     echo "Review the plan above. Continue? (yes/no)"
     read -r CONFIRM
     
     if [ "$CONFIRM" = "yes" ]; then
-        terraform apply plan.tfplan
+        terraform apply "${ENVIRONMENT}.tfplan"
+        rm -f "${ENVIRONMENT}.tfplan"
         echo "Infrastructure deployed successfully."
     else
+        rm -f "${ENVIRONMENT}.tfplan"
         echo "Deployment cancelled."
         exit 1
     fi
@@ -59,29 +76,81 @@ deploy_infrastructure() {
 deploy_application() {
     echo "Deploying application..."
     
-    EC2_IP=$(terraform output -raw ec2_public_ip 2>/dev/null || echo "")
+    cd "$TERRAFORM_DIR"
+    
+    # Ensure correct workspace
+    terraform workspace select "$ENVIRONMENT" 2>/dev/null || {
+        echo "ERROR: Workspace $ENVIRONMENT does not exist. Run infrastructure deployment first."
+        exit 1
+    }
+    
+    EC2_IP=$(terraform output -raw instance_public_ip 2>/dev/null || echo "")
     
     if [ -z "$EC2_IP" ]; then
         echo "ERROR: Could not get EC2 IP from Terraform output"
         exit 1
     fi
     
+    SSH_KEY="$HOME/.ssh/localstore-${ENVIRONMENT}.pem"
+    
+    if [ ! -f "$SSH_KEY" ]; then
+        echo "ERROR: SSH key not found: $SSH_KEY"
+        exit 1
+    fi
+    
     echo "Deploying to $EC2_IP..."
     
+    # Select compose file based on environment
+    if [ "$ENVIRONMENT" = "prod" ]; then
+        COMPOSE_FILE="docker-compose.prod.yml"
+    else
+        COMPOSE_FILE="docker-compose.dev.yml"
+    fi
+    
+    echo "Using compose file: $COMPOSE_FILE"
+    
+    # Create directory on remote
+    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" \
+        "sudo mkdir -p /opt/localstore && sudo chown ec2-user:ec2-user /opt/localstore"
+    
     # Copy docker-compose files
-    scp -i ~/.ssh/localstore-key.pem \
-        "$INFRA_DIR/docker/compose/docker-compose.prod.yml" \
-        "ec2-user@$EC2_IP:/opt/localstore/"
+    scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
+        "$INFRA_DIR/docker/compose/$COMPOSE_FILE" \
+        "ec2-user@$EC2_IP:/opt/localstore/docker-compose.yml"
+    
+    # Copy .env file if exists
+    if [ -f "$INFRA_DIR/.env.${ENVIRONMENT}" ]; then
+        scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
+            "$INFRA_DIR/.env.${ENVIRONMENT}" \
+            "ec2-user@$EC2_IP:/opt/localstore/.env"
+    fi
     
     # Deploy
-    ssh -i ~/.ssh/localstore-key.pem "ec2-user@$EC2_IP" << 'EOF'
+    ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" << 'EOF'
         cd /opt/localstore
-        docker compose -f docker-compose.prod.yml pull
-        docker compose -f docker-compose.prod.yml up -d
-        docker compose -f docker-compose.prod.yml ps
+        
+        # Login to ECR (uses instance IAM role or pre-configured credentials)
+        AWS_REGION="ap-southeast-1"
+        ECR_REGISTRY="767828741221.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        
+        # Get ECR login token and authenticate Docker
+        aws ecr get-login-password --region $AWS_REGION | \
+            docker login --username AWS --password-stdin $ECR_REGISTRY 2>/dev/null || \
+            echo "Warning: ECR login failed. Will use local/public images only."
+        
+        docker compose pull || echo "Some images may not be available yet"
+        docker compose up -d
+        docker compose ps
 EOF
     
     echo "Application deployed successfully."
+    echo ""
+    echo "Services available at:"
+    echo "  PostgreSQL: $EC2_IP:5432"
+    echo "  Redis:      $EC2_IP:6379"
+    if [ "$ENVIRONMENT" = "prod" ]; then
+        echo "  API:        http://$EC2_IP:80"
+    fi
 }
 
 # Main
