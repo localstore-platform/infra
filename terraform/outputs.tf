@@ -37,3 +37,25 @@ output "ssh_command" {
   description = "SSH command to connect to the instance"
   value       = "ssh -i ~/.ssh/${var.key_name}.pem ec2-user@${module.ec2.public_ip}"
 }
+
+# Resource Group Outputs
+output "resource_group_name" {
+  description = "AWS Resource Group name for cost management"
+  value       = module.resource_group.resource_group_name
+}
+
+output "resource_group_arn" {
+  description = "AWS Resource Group ARN"
+  value       = module.resource_group.resource_group_arn
+}
+
+# CloudFlare Outputs
+output "api_hostname" {
+  description = "API hostname (CloudFlare managed)"
+  value       = module.cloudflare_dns.api_hostname
+}
+
+output "api_url" {
+  description = "API URL (HTTPS via CloudFlare)"
+  value       = "https://${module.cloudflare_dns.api_hostname}"
+}

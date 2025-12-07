@@ -62,3 +62,10 @@ variable "db_password" {
   sensitive   = true
   default     = "" # Must be provided via tfvars or environment
 }
+
+# CloudFlare variables
+variable "cloudflare_proxied" {
+  type        = bool
+  description = "Enable CloudFlare proxy (provides free SSL, DDoS protection, CDN)"
+  default     = true
+}

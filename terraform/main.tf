@@ -15,6 +15,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
+    }
   }
 
   # Remote state with workspace-based key
@@ -35,6 +39,9 @@ provider "aws" {
     tags = local.common_tags
   }
 }
+
+# CloudFlare provider - uses CLOUDFLARE_API_TOKEN env var
+provider "cloudflare" {}
 
 # Local values with workspace-aware naming
 locals {
@@ -93,4 +100,20 @@ module "ec2" {
   key_name      = var.key_name
   admin_ip      = var.admin_ip
   create_eip    = var.create_eip != null ? var.create_eip : local.current_config.create_eip
+}
+
+# Resource Group Module - for cost management via AWS Systems Manager
+module "resource_group" {
+  source = "./modules/resource-group"
+
+  environment = local.environment
+}
+
+# CloudFlare DNS Module - manages DNS records and enables proxy (SSL, DDoS, CDN)
+module "cloudflare_dns" {
+  source = "./modules/cloudflare-dns"
+
+  environment = local.environment
+  origin_ip   = module.ec2.public_ip
+  proxied     = var.cloudflare_proxied
 }
