@@ -22,12 +22,13 @@ terraform {
   }
 
   # Remote state with workspace-based key
+  # Uses S3-native locking (use_lockfile) instead of DynamoDB
   backend "s3" {
-    bucket         = "localstore-terraform-state"
-    key            = "terraform.tfstate"
-    region         = "ap-southeast-1"
-    encrypt        = true
-    dynamodb_table = "localstore-terraform-locks"
+    bucket       = "localstore-terraform-state"
+    key          = "terraform.tfstate"
+    region       = "ap-southeast-1"
+    encrypt      = true
+    use_lockfile = true
     # State file path: localstore-terraform-state/env:/{workspace}/terraform.tfstate
   }
 }

@@ -154,9 +154,10 @@ resource "aws_instance" "app" {
               chown ec2-user:ec2-user /opt/localstore
               
               # Pre-authenticate to ECR (will use instance profile)
-              # Get AWS account ID dynamically
+              # Get AWS account ID and region dynamically (IMDSv2 requires token)
+              TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+              AWS_REGION=$(curl -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/placement/region)
               AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-              AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
               aws ecr get-login-password --region $AWS_REGION | \
                 docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com || true
               EOF
