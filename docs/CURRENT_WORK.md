@@ -2,7 +2,7 @@
 
 **Sprint:** 0.5 - Menu Demo  
 **Last Updated:** 2025-12-07  
-**Branch:** `feat/init-repo`
+**Branch:** `main`
 
 ---
 
@@ -15,6 +15,7 @@
 | INFRA-3 | Docker Compose for local dev | ✅ Done | PostgreSQL 17, Redis 8 |
 | INFRA-4 | Docker build workflow (ECR) | ✅ Done | Switched from GHCR to ECR |
 | INFRA-5 | Deploy API to AWS | ✅ Done | Dev env deployed with ECR auth |
+| INFRA-6 | Add migration & seed to deployment | ✅ Done | PR #2 merged |
 
 ---
 
@@ -22,17 +23,24 @@
 
 **All Sprint 0.5 stories complete!**
 
-Dev environment deployed:
+Dev environment fully deployed and operational:
 
-- VPC: `vpc-038d8dabcd1c7a03d`
 - EC2: `i-070d4ef3f7f5ac26a` (t2.micro, Amazon Linux 2023)
-- Public IP: `13.212.103.150`
-- SSH: `ssh -i ~/.ssh/localstore-dev.pem ec2-user@13.212.103.150`
+- Public IP: `54.254.209.58`
+- Domain: `api-dev.localstore-platform.com` (CloudFlare DNS + SSL)
 
 Services running:
 
-- PostgreSQL: `13.212.103.150:5432`
-- Redis: `13.212.103.150:6379`
+- API: <https://api-dev.localstore-platform.com/api/v1/health>
+- PostgreSQL: `54.254.209.58:5432`
+- Redis: `54.254.209.58:6379`
+- Nginx: HTTPS reverse proxy with CloudFlare Origin Certificate
+
+Sample data seeded:
+
+- Tenant: "Phở Hà Nội 24"
+- Menu: 5 categories, 13 items
+- Test: <https://api-dev.localstore-platform.com/api/v1/menu/550e8400-e29b-41d4-a716-446655440000>
 
 ---
 
@@ -47,40 +55,69 @@ Services running:
 | VPC | ✅ | 🔴 | 🔴 |
 | EC2 + IAM Profile | ✅ | 🔴 | 🔴 |
 | SSH Key | ✅ | 🔴 | 🔴 |
+| ECR Repository | ✅ | - | - |
+| CloudFlare DNS | ✅ | 🔴 | 🔴 |
 
-### Container Registry
-
-Using **AWS ECR** instead of GHCR:
+### Container Registry (AWS ECR)
 
 - Region: ap-southeast-1
 - Account: 767828741221
+- Repository: `localstore/api`
 - EC2 has IAM instance profile for ECR access
 
-### Docker Images (ECR)
+### Docker Images
 
 | Image | Status |
 |-------|--------|
-| 767828741221.dkr.ecr.ap-southeast-1.amazonaws.com/localstore-platform/api | 🔴 Not built yet |
-| 767828741221.dkr.ecr.ap-southeast-1.amazonaws.com/localstore-platform/ai | 🔴 Not built yet |
+| `767828741221.dkr.ecr.ap-southeast-1.amazonaws.com/localstore/api:latest` | ✅ Deployed |
+
+---
+
+## 🚀 Deployment Pipeline
+
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/deploy.sh` | Main deployment script |
+| `scripts/remote-deploy.sh` | ECR login, pull, migrations, start services |
+| `scripts/seed.sh` | Seed sample data (dev only) |
+
+### Commands
+
+```bash
+# Deploy to dev
+make deploy-app
+
+# Full deployment flow:
+# 1. Copy files to EC2 (compose, nginx, SSL, .env)
+# 2. Run remote-deploy.sh → ECR login, pull, migrations, start
+# 3. Run seed.sh (dev only) → Wait for health, seed data
+```
+
+### Migration & Seed Commands
+
+| Command | Purpose |
+|---------|---------|
+| `pnpm run migration:run:prod` | Run migrations (compiled JS) |
+| `pnpm run seed:compiled` | Seed database (compiled JS) |
 
 ---
 
 ## 📝 Notes
 
-### Completed Today
+### Recently Completed
 
-1. Switched from GHCR to ECR for container registry
-2. Added IAM role with ECR access for EC2
-3. Updated docker-build workflow to create/use ECR repos
-4. Deployed PostgreSQL 17 and Redis 8 to dev EC2
-5. Both services healthy and accepting connections
+1. ✅ Added migration step to deployment pipeline
+2. ✅ Added seed step for dev environment
+3. ✅ Refactored scripts to avoid heredoc issues
+4. ✅ Full deployment from scratch verified working
+5. ✅ Menu API returns seeded Vietnamese restaurant data
 
-### Next Steps
+### Merged PRs
 
-1. Merge PR #1 to main
-2. API team runs docker-build workflow to push images to ECR
-3. Update docker-compose.prod.yml with ECR images
-4. Deploy full stack (API + DB + Redis)
+- PR #1: Initial infrastructure setup (ECR, CloudFlare, EC2)
+- PR #2: Add migration and seed steps to deployment
 
 ---
 
