@@ -175,8 +175,9 @@ deploy_application() {
         
         # Run database migrations BEFORE starting the API
         # This ensures schema is up-to-date before the API connects
+        # Use migration:run:prod which uses pre-compiled JS (no ts-node needed)
         echo "Running database migrations..."
-        docker compose run --rm api pnpm run migration:run || {
+        docker compose run --rm api pnpm run migration:run:prod || {
             echo "ERROR: Database migrations failed!"
             exit 1
         }

@@ -123,7 +123,8 @@ vim .env  # Update with production values
 docker compose -f docker-compose.prod.yml pull
 
 # Run database migrations BEFORE starting the API
-docker compose -f docker-compose.prod.yml run --rm api pnpm run migration:run
+# Use migration:run:prod for production (uses pre-compiled JS, no ts-node)
+docker compose -f docker-compose.prod.yml run --rm api pnpm run migration:run:prod
 
 # Start services
 docker compose -f docker-compose.prod.yml up -d
@@ -139,7 +140,10 @@ docker compose -f docker-compose.prod.yml ps
 Migrations must be run **before** starting the API after any deployment that includes schema changes:
 
 ```bash
-# Run migrations
+# Run migrations (production - uses pre-compiled JS)
+docker compose run --rm api pnpm run migration:run:prod
+
+# Run migrations (development - uses ts-node)
 docker compose run --rm api pnpm run migration:run
 
 # Check migration status
