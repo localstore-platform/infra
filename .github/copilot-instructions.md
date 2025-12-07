@@ -351,7 +351,6 @@ resource "aws_cloudwatch_metric_alarm" "cpu_high" {
 - Database connections
 - Redis memory usage
 - Disk space (EBS volumes)
-- SSL certificate expiry
 
 ---
 

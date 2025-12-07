@@ -68,29 +68,24 @@ REDIS_PASSWORD=another_secure_password
 
 ## SSL/TLS Configuration
 
-### Certificate Setup
+### CloudFlare Proxy Mode
 
-Using Let's Encrypt with auto-renewal:
+SSL is handled automatically by CloudFlare proxy (orange cloud icon):
 
-```bash
-# Install Certbot
-sudo yum install certbot -y
+- Free SSL/TLS certificates (auto-provisioned)
+- DDoS protection
+- WAF (Web Application Firewall)
+- Hidden origin IP
 
-# Generate certificate
-sudo certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN
+Set CloudFlare SSL mode to "Flexible" in the dashboard.
 
-# Auto-renewal cron (already configured by Certbot)
-# 0 0,12 * * * certbot renew --quiet
-```
-
-### Nginx SSL Configuration
+### Nginx Configuration
 
 See [docker/nginx/conf.d/api.conf](../docker/nginx/conf.d/api.conf) for:
 
-- TLS 1.2/1.3 only
-- Strong cipher suites
-- HSTS headers
-- OCSP stapling
+- CloudFlare IP allowlisting
+- Real IP extraction from CF-Connecting-IP header
+- Rate limiting
 
 ## Network Security
 

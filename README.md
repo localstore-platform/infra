@@ -87,8 +87,8 @@ infra/
 │
 ├── scripts/
 │   ├── deploy.sh            # Deployment script
-│   ├── backup-db.sh         # Database backup
-│   └── ssl-renew.sh         # SSL certificate renewal
+│   ├── config.sh            # Environment configuration generator
+│   └── ecr.mk               # ECR operations Makefile
 │
 ├── docs/
 │   ├── DEPLOYMENT.md        # Deployment guide

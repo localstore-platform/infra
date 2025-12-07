@@ -126,26 +126,13 @@ docker compose -f docker-compose.prod.yml up -d
 docker compose -f docker-compose.prod.yml ps
 ```
 
-### 6. Configure SSL
-
-```bash
-# Install Certbot
-sudo yum install -y certbot
-
-# Generate certificate
-sudo certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN
-
-# Reload Nginx
-docker compose -f docker-compose.prod.yml restart nginx
-```
-
 ## Post-Deployment Checklist
 
 - [ ] All services healthy (`docker compose ps`)
 - [ ] API health check responds (`curl https://YOUR_DOMAIN/health`)
 - [ ] Database accessible from API
 - [ ] Redis accessible from API
-- [ ] SSL certificate valid
+- [ ] CloudFlare proxy enabled (orange cloud)
 - [ ] CloudWatch metrics appearing
 - [ ] Alerts configured
 
@@ -196,19 +183,6 @@ docker compose logs postgres
 
 # Connect to database
 docker compose exec postgres psql -U localstore
-```
-
-### SSL Certificate Issues
-
-```bash
-# Check certificate status
-sudo certbot certificates
-
-# Renew certificate
-sudo certbot renew
-
-# Reload Nginx
-docker compose restart nginx
 ```
 
 ## Rollback Procedure

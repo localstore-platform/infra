@@ -23,7 +23,7 @@ hotfix/{ticket-id}-{description}
 
 - `feature/INFRA-001-vpc-setup`
 - `bugfix/INFRA-002-security-group-fix`
-- `hotfix/INFRA-003-ssl-renewal`
+- `hotfix/INFRA-003-dns-issue`
 
 ## Workflow
 
