@@ -119,12 +119,48 @@ cd infra/docker/compose
 cp ../../.env.example .env
 vim .env  # Update with production values
 
+# Pull latest images
+docker compose -f docker-compose.prod.yml pull
+
+# Run database migrations BEFORE starting the API
+docker compose -f docker-compose.prod.yml run --rm api pnpm run migration:run
+
 # Start services
 docker compose -f docker-compose.prod.yml up -d
 
 # Verify services
 docker compose -f docker-compose.prod.yml ps
 ```
+
+### 6. Database Migrations & Seeding
+
+#### Migrations (Required for all environments)
+
+Migrations must be run **before** starting the API after any deployment that includes schema changes:
+
+```bash
+# Run migrations
+docker compose run --rm api pnpm run migration:run
+
+# Check migration status
+docker compose run --rm api pnpm run migration:show
+```
+
+> ⚠️ **Important:** Production `docker-compose.yml` intentionally excludes automatic migrations for safety. Always run migrations manually and verify success before starting the API.
+
+#### Seeding (Dev environment only)
+
+For development environments, seed the database with sample data:
+
+```bash
+# Seed database with sample Vietnamese data (Phở Hà Nội 24)
+docker compose exec api pnpm run seed:run
+```
+
+The deploy script (`scripts/deploy.sh`) automatically:
+
+1. Runs migrations before starting the API (all environments)
+2. Seeds sample data after deployment (dev environment only)
 
 ## Post-Deployment Checklist
 

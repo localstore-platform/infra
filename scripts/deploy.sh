@@ -172,9 +172,45 @@ deploy_application() {
         fi
         
         docker compose pull || echo "Some images may not be available yet"
+        
+        # Run database migrations BEFORE starting the API
+        # This ensures schema is up-to-date before the API connects
+        echo "Running database migrations..."
+        docker compose run --rm api pnpm run migration:run || {
+            echo "ERROR: Database migrations failed!"
+            exit 1
+        }
+        echo "Migrations completed successfully."
+        
         docker compose up -d
         docker compose ps
 EOF
+
+    # For dev environment, also seed the database with sample data
+    if [ "$ENVIRONMENT" = "dev" ]; then
+        echo "Seeding database with sample data (dev environment only)..."
+        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" << 'EOF'
+            cd /opt/localstore
+            
+            # Wait for API to be ready
+            echo "Waiting for API to be ready..."
+            for i in {1..30}; do
+                if docker compose exec -T api curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+                    echo "API is ready!"
+                    break
+                fi
+                echo "Attempt $i/30: API not ready yet, waiting..."
+                sleep 2
+            done
+            
+            # Run seed command
+            echo "Running database seed..."
+            docker compose exec -T api pnpm run seed:run || {
+                echo "Warning: Database seeding failed. This may be okay if data already exists."
+            }
+            echo "Seeding completed."
+EOF
+    fi
     
     echo "Application deployed successfully."
     echo ""
