@@ -1,14 +1,69 @@
 # EC2 Module - Main Configuration
 
-# Get latest Amazon Linux 2 AMI
-data "aws_ami" "amazon_linux_2" {
+# Get latest Amazon Linux 2023 AMI (has AWS CLI pre-installed)
+data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["al2023-ami-*-x86_64"]
   }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# IAM Role for EC2 to access ECR
+resource "aws_iam_role" "ec2_ecr" {
+  name = "localstore-${var.environment}-ec2-ecr-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name = "localstore-${var.environment}-ec2-ecr-role"
+  }
+}
+
+# IAM Policy for ECR access
+resource "aws_iam_role_policy" "ecr_access" {
+  name = "localstore-${var.environment}-ecr-access"
+  role = aws_iam_role.ec2_ecr.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# IAM Instance Profile
+resource "aws_iam_instance_profile" "ec2_ecr" {
+  name = "localstore-${var.environment}-ec2-ecr-profile"
+  role = aws_iam_role.ec2_ecr.name
 }
 
 # Security Group for API
@@ -60,34 +115,47 @@ resource "aws_security_group" "api" {
 
 # EC2 Instance
 resource "aws_instance" "app" {
-  ami                    = data.aws_ami.amazon_linux_2.id
+  ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = var.instance_type
   key_name               = var.key_name
   subnet_id              = var.subnet_id
   vpc_security_group_ids = [aws_security_group.api.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2_ecr.name
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
     encrypted   = true
   }
 
   user_data = <<-EOF
               #!/bin/bash
+              # Amazon Linux 2023 already has AWS CLI installed
+              
               # Install Docker
-              yum update -y
-              amazon-linux-extras install docker -y
+              dnf update -y
+              dnf install -y docker
               systemctl start docker
               systemctl enable docker
               usermod -a -G docker ec2-user
               
-              # Install Docker Compose
-              curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-              chmod +x /usr/local/bin/docker-compose
+              # Install Docker Compose V2 plugin
+              mkdir -p /usr/local/lib/docker/cli-plugins
+              curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/lib/docker/cli-plugins/docker-compose
+              chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+              
+              # Also install for ec2-user
+              mkdir -p /home/ec2-user/.docker/cli-plugins
+              cp /usr/local/lib/docker/cli-plugins/docker-compose /home/ec2-user/.docker/cli-plugins/
+              chown -R ec2-user:ec2-user /home/ec2-user/.docker
               
               # Create app directory
               mkdir -p /opt/localstore
               chown ec2-user:ec2-user /opt/localstore
+              
+              # Pre-authenticate to ECR (will use instance profile)
+              aws ecr get-login-password --region ap-southeast-1 | \
+                docker login --username AWS --password-stdin 767828741221.dkr.ecr.ap-southeast-1.amazonaws.com || true
               EOF
 
   tags = {
