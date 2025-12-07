@@ -1,0 +1,54 @@
+# LocalStore Platform - Dev Environment (Infrastructure Only)
+# Usage: docker compose -f docker-compose.dev.yml up -d
+#
+# This compose file runs only infrastructure services (PostgreSQL, Redis)
+# API and AI services will be deployed when GHCR images are available
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: localstore-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-localstore}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localstore_dev}
+      POSTGRES_DB: ${DB_NAME:-localstore}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-localstore}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - localstore-network
+
+  # Redis Cache
+  redis:
+    image: redis:8-alpine
+    container_name: localstore-redis
+    restart: always
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - localstore-network
+
+networks:
+  localstore-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

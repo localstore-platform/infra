@@ -43,7 +43,7 @@ services:
 
   # NestJS API (optional - can run locally instead)
   api:
-    image: ghcr.io/localstore-platform/api:latest
+    image: ${ECR_REGISTRY:-767828741221.dkr.ecr.ap-southeast-1.amazonaws.com}/api:${API_VERSION:-latest}
     container_name: localstore-api
     restart: unless-stopped
     environment:
