@@ -129,14 +129,24 @@ deploy_application() {
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" << 'EOF'
         cd /opt/localstore
         
-        # Login to ECR (uses instance IAM role or pre-configured credentials)
-        AWS_REGION="ap-southeast-1"
-        ECR_REGISTRY="767828741221.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        # Login to ECR (uses instance IAM role)
+        # Get AWS account ID and region dynamically
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        
+        # Export ECR_REGISTRY for docker-compose
+        export ECR_REGISTRY
         
         # Get ECR login token and authenticate Docker
         aws ecr get-login-password --region $AWS_REGION | \
             docker login --username AWS --password-stdin $ECR_REGISTRY 2>/dev/null || \
             echo "Warning: ECR login failed. Will use local/public images only."
+        
+        # Update .env with ECR_REGISTRY if not set
+        if ! grep -q "^ECR_REGISTRY=" .env 2>/dev/null; then
+            echo "ECR_REGISTRY=$ECR_REGISTRY" >> .env
+        fi
         
         docker compose pull || echo "Some images may not be available yet"
         docker compose up -d

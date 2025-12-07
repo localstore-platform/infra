@@ -154,8 +154,11 @@ resource "aws_instance" "app" {
               chown ec2-user:ec2-user /opt/localstore
               
               # Pre-authenticate to ECR (will use instance profile)
-              aws ecr get-login-password --region ap-southeast-1 | \
-                docker login --username AWS --password-stdin 767828741221.dkr.ecr.ap-southeast-1.amazonaws.com || true
+              # Get AWS account ID dynamically
+              AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+              AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+              aws ecr get-login-password --region $AWS_REGION | \
+                docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com || true
               EOF
 
   tags = {

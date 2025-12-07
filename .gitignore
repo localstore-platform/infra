@@ -41,12 +41,9 @@ terraform.rc
 # Environment
 # ===================
 
-# Local environment file (contains secrets)
+# Local environment files (contain secrets)
 .env
-.env.local
-.env.*.local
-
-# But include example
+.env.*
 !.env.example
 
 # ===================
