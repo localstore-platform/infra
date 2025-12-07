@@ -4,11 +4,14 @@ This directory contains Nginx reverse proxy configurations for production deploy
 
 ## Domains
 
-| Environment | API Domain                          |
-| ----------- | ----------------------------------- |
-| dev         | `api.dev.localstore-platform.com`   |
-| staging     | `api.staging.localstore-platform.com` |
-| prod        | `api.localstore-platform.com`       |
+CloudFlare free SSL covers `*.localstore-platform.com` (single-level wildcards only).
+Multi-level subdomains like `api.dev.example.com` require paid Advanced Certificate Manager.
+
+| Environment | API Domain                            |
+| ----------- | ------------------------------------- |
+| dev         | `api-dev.localstore-platform.com`     |
+| staging     | `api-staging.localstore-platform.com` |
+| prod        | `api.localstore-platform.com`         |
 
 ## Files
 
@@ -92,7 +95,7 @@ Create token at: <https://dash.cloudflare.com/profile/api-tokens>
 4. **Verify**:
 
    ```bash
-   curl -I https://api.dev.localstore-platform.com/health
+   curl -I https://api-dev.localstore-platform.com/health
    ```
 
 No SSL certificate management needed! CloudFlare handles everything.

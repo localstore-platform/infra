@@ -25,11 +25,13 @@ DEFAULT_API_VERSION="latest"
 DEFAULT_AI_VERSION="latest"
 
 # Domain mapping per environment
+# CloudFlare free SSL covers *.localstore-platform.com (single-level only)
+# So we use: api-dev, api-staging, api (not api.dev, api.staging)
 get_api_domain() {
     local env="$1"
     case "$env" in
-        dev)     echo "api.dev.localstore-platform.com" ;;
-        staging) echo "api.staging.localstore-platform.com" ;;
+        dev)     echo "api-dev.localstore-platform.com" ;;
+        staging) echo "api-staging.localstore-platform.com" ;;
         prod)    echo "api.localstore-platform.com" ;;
     esac
 }
