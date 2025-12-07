@@ -190,28 +190,8 @@ EOF
     # For dev environment, also seed the database with sample data
     if [ "$ENVIRONMENT" = "dev" ]; then
         echo "Seeding database with sample data (dev environment only)..."
-        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" << 'EOF'
-            cd /opt/localstore
-            
-            # Wait for API to be ready
-            # Note: Using wget because alpine-based API container doesn't have curl
-            echo "Waiting for API to be ready..."
-            for i in {1..30}; do
-                if docker compose exec -T api wget --no-verbose --tries=1 --spider http://localhost:8080/api/v1/health 2>/dev/null; then
-                    echo "API is ready!"
-                    break
-                fi
-                echo "Attempt $i/30: API not ready yet, waiting..."
-                sleep 2
-            done
-            
-            # Run seed command
-            echo "Running database seed..."
-            docker compose exec -T api pnpm run seed:run || {
-                echo "Warning: Database seeding failed. This may be okay if data already exists."
-            }
-            echo "Seeding completed."
-EOF
+        scp -i "$SSH_KEY" -o StrictHostKeyChecking=no "$SCRIPT_DIR/seed.sh" "ec2-user@$EC2_IP:/tmp/seed.sh"
+        ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no "ec2-user@$EC2_IP" "chmod +x /tmp/seed.sh && /tmp/seed.sh"
     fi
     
     echo "Application deployed successfully."
